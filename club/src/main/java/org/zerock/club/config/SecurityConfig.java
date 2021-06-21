@@ -4,14 +4,18 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.zerock.club.security.filter.ApiCheckFilter;
+import org.zerock.club.security.filter.ApiLoginFilter;
+import org.zerock.club.security.handler.ApiLoginFailHandler;
 import org.zerock.club.security.handler.ClubLoginSucessHandler;
 import org.zerock.club.security.service.ClubUserDetailService;
+import org.zerock.club.security.util.JWTUtil;
 
 @Configuration
 @Log4j2
@@ -37,7 +41,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         http.csrf().disable();
         http.logout();
         http.oauth2Login().successHandler(successHandler());
-        http.rememberMe().tokenValiditySeconds(60 * 60 * 7).userDetailsService(userDetailService);
+        http.rememberMe().tokenValiditySeconds(60 * 60 * 7).userDetailsService(userDetailService); // 7Days
+
+        // 필터 위치 조절
+        http.addFilterBefore(apiCheckFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(apiLoginFilter(), UsernamePasswordAuthenticationFilter.class);
+
     }
 
     @Bean
@@ -54,5 +63,27 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 //        .password("$2a$10$lQb.yA8NN2UPEwL8enSPieMWo0libEIEIWfF84dnQureSccv8IVji")
 //        .roles("USER");
 //    }
+
+    @Bean
+    public ApiLoginFilter apiLoginFilter() throws Exception {
+
+        ApiLoginFilter apiLoginFilter = new ApiLoginFilter("/api/login", jwtUtil());
+        apiLoginFilter.setAuthenticationManager(authenticationManager());;
+
+        apiLoginFilter.setAuthenticationFailureHandler(new ApiLoginFailHandler());
+
+        return apiLoginFilter;
+    }
+
+    @Bean
+    public ApiCheckFilter apiCheckFilter() {
+
+        return new ApiCheckFilter("/notes/**/*", jwtUtil());
+    }
+
+    @Bean
+    public JWTUtil jwtUtil() {
+        return new JWTUtil();
+    }
 
 }
